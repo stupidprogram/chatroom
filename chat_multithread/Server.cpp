@@ -58,24 +58,7 @@ int Server::connect_to_room(int room, int fd, const char* name)
 {
 	if (chatroom[room] != NULL)
 	{
-		bool flag = true;
-		for (int i = 0; i < USERMAX; ++i)
-		{
-			if (chatroom[room]->user[i] == NULL)
-			{
-				pthread_mutex_lock(&mut);
-				int size = sizeof(User) + NAMEMAX - 1;
-				chatroom[room]->user[i] = reinterpret_cast<User*>(malloc(size));
-				chatroom[room]->user[i]->fd = fd;
-				strcpy(chatroom[room]->user[i]->name, name);
-				struct epoll_event my_envent;
-				my_envent.data.fd = fd;
-				my_envent.events = EPOLLIN;
-				epoll_ctl(chatroom[room]->efd, EPOLL_CTL_ADD, fd, &my_envent);
-				pthread_mutex_unlock(&mut);
-				break;
-			}
-		}
+		user_add(room, fd, name);
 	}
 	else
 	{
@@ -91,14 +74,7 @@ int Server::connect_to_room(int room, int fd, const char* name)
 		cur_arg = reinterpret_cast<struct pthread_arg*>(malloc(sizeof(struct pthread_arg)));
 		cur_arg->ptr = this;
 		cur_arg->room = room;
-		struct epoll_event my_envent;
-		my_envent.data.fd = fd;
-		my_envent.events = EPOLLIN;
-		epoll_ctl(chatroom[room]->efd, EPOLL_CTL_ADD, fd, &my_envent);
-		int size = sizeof(User) + NAMEMAX - 1;
-		chatroom[room]->user[0] = reinterpret_cast<User*>(malloc(size));
-		chatroom[room]->user[0]->fd = fd;
-		strcpy(chatroom[room]->user[0]->name, name);
+		user_add(room, fd, name);
 		pthread_create(&ptid, NULL, thread_run<Server, &Server::chat>, cur_arg);
 	}
 	return 0;
@@ -210,6 +186,35 @@ void* Server::thread_run(void *arg)
 	TYPE* cur_ptr = reinterpret_cast<TYPE*>(cur_arg->ptr);
 	cur_ptr->chat(cur_arg->room);
 	return NULL;
+}
+
+int Server::user_add(int room, int fd, const char* name)
+{
+	bool flag = true;
+	for (int i = 0; i < USERMAX; ++i)
+	{
+		if (chatroom[room]->user[i] == NULL)
+		{
+			pthread_mutex_lock(&mut);
+			int size = sizeof(User) + NAMEMAX - 1;
+			chatroom[room]->user[i] = reinterpret_cast<User*>(malloc(size));
+			chatroom[room]->user[i]->fd = fd;
+			strcpy(chatroom[room]->user[i]->name, name);
+			struct epoll_event my_envent;
+			my_envent.data.fd = fd;
+			my_envent.events = EPOLLIN;
+			epoll_ctl(chatroom[room]->efd, EPOLL_CTL_ADD, fd, &my_envent);
+			flag = false;
+			pthread_mutex_unlock(&mut);
+			break;
+		}
+	}
+	if (flag)
+	{
+		fprintf(stderr, "out range!");
+		return -1;
+	}
+	return 1;
 }
 
 

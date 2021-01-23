@@ -25,6 +25,8 @@ private:
 	void chat(int room);
 	Chatroom** chatroom;
 
+	int user_add(int room, int fd, const char* name);
+
 	template<typename TYPE, void (TYPE::*chat)(int)>
 	static void* thread_run(void *arg);
 };
