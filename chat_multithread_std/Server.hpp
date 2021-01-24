@@ -1,6 +1,8 @@
 #ifndef SERVER_H__
 #define SERVER_H__
 
+class Chatroom;
+
 class Server
 {
 public:
@@ -10,20 +12,12 @@ public:
 
 
 private:
-	typedef struct
-	{
-		int fd;
-		char name[1];
-	} User;
-	typedef struct
-	{
-		int pipe;
-		User** user;
-	} Chatroom;
 	int logon(int fd, char* name);
 	int connect_to_room(int room,int fd, const char* name);
 	void chat(int room);
 	Chatroom** chatroom;
+
+	int user_add(int room, int fd, const char* name);
 };
 
 #endif

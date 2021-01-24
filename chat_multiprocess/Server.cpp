@@ -102,7 +102,7 @@ int Server::connect_to_room(int room, int fd, const char* name)
 {
 	if (chatroom[room] != NULL)
 	{
-		send_fd(chatroom[room]->pipe[0], fd, name);
+		send_fd(chatroom[room]->pipe, fd, name);
 	}
 	else
 	{
@@ -127,9 +127,7 @@ int Server::connect_to_room(int room, int fd, const char* name)
 		}
 		else if (pid == 0)
 		{
-			chatroom[room]->pipe[0] = pipefd[0];
-			chatroom[room]->pipe[1] = pipefd[1];
-			//chatroom[room]->user = new User*[USERMAX];
+			chatroom[room]->pipe = pipefd[1];
 			pid = fork();
 			if (pid < 0)
 			{
@@ -145,10 +143,9 @@ int Server::connect_to_room(int room, int fd, const char* name)
 		}
 		else
 		{
-			chatroom[room]->pipe[0] = pipefd[0];
-			chatroom[room]->pipe[1] = pipefd[1];
+			chatroom[room]->pipe = pipefd[0];
 			wait(NULL);
-			send_fd(chatroom[room]->pipe[0], fd, name);
+			send_fd(chatroom[room]->pipe, fd, name);
 		}
 	}
 	return 0;
@@ -168,10 +165,10 @@ void Server::chat(int room)
 
 	efd = epoll_create(USERMAX);
 
-	my_envent.data.fd = chatroom[room]->pipe[1];
+	my_envent.data.fd = chatroom[room]->pipe;
 	my_envent.events = EPOLLIN;
 
-	epoll_ctl(efd, EPOLL_CTL_ADD, chatroom[room]->pipe[1], &my_envent);
+	epoll_ctl(efd, EPOLL_CTL_ADD, chatroom[room]->pipe, &my_envent);
 
 	while (1)
 	{
@@ -183,7 +180,7 @@ void Server::chat(int room)
 			continue;
 		}
 
-		if (chatroom[room]->pipe[1] == my_envent.data.fd)
+		if (chatroom[room]->pipe == my_envent.data.fd)
 		{
 			bool flag = true;
 			for (int i = 0; i < USERMAX; ++i)
@@ -192,7 +189,7 @@ void Server::chat(int room)
 				{
 					int size = sizeof(User) + NAMEMAX - 1;
 					chatroom[room]->user[i] = reinterpret_cast<User*>(malloc(size));
-					chatroom[room]->user[i]->fd = recv_fd(chatroom[room]->pipe[1], chatroom[room]->user[i]->name);
+					chatroom[room]->user[i]->fd = recv_fd(chatroom[room]->pipe, chatroom[room]->user[i]->name);
 					printf("Chatroom[%d] : The new connected user is %s\n", room, chatroom[room]->user[i]->name);
 					fflush(NULL);
 					my_envent.data.fd = chatroom[room]->user[i]->fd;
